@@ -15,7 +15,9 @@ interface LaunchCardProps {
 }
 
 export function LaunchCard({ launch }: LaunchCardProps) {
-  const chainConfig = CHAIN_CONFIG[launch.chain];
+  const chainConfig =
+    CHAIN_CONFIG[launch.chain as keyof typeof CHAIN_CONFIG] ??
+    { label: launch.chain, nativeSymbol: "", color: "#71717a", explorerUrl: "#" };
   const artifactConfig = launch.artifact_type
     ? ARTIFACT_TYPE_CONFIG[launch.artifact_type]
     : null;
