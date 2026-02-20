@@ -21,10 +21,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen">
+      <body className="min-h-screen text-slate-100">
         <Providers>
           <Header />
-          <main>{children}</main>
+          <main className="relative">{children}</main>
         </Providers>
       </body>
     </html>

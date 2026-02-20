@@ -23,29 +23,21 @@ export function FeedList() {
     page,
   });
 
-  // Realtime: listen for new launches via Supabase
   const { newLaunchAlert, dismissAlert } = useRealtimeFeed();
 
   return (
     <div className="space-y-4">
-      {/* Realtime new launch banner */}
       {newLaunchAlert && (
-        <div className="flex items-center gap-3 rounded-xl border border-wazabi-500/30 bg-wazabi-500/5 px-4 py-3 animate-in fade-in slide-in-from-top-2">
-          <span className="h-2 w-2 rounded-full bg-wazabi-500 animate-pulse" />
-          <p className="flex-1 text-sm text-wazabi-300">
-            New launch:{" "}
-            <Link
-              href={`/launch/${newLaunchAlert.token_address}`}
-              className="font-semibold text-wazabi-400 hover:underline"
-            >
+        <div className="soft-rise glass-panel flex items-center gap-3 rounded-2xl px-4 py-3">
+          <span className="h-2 w-2 rounded-full bg-teal-300 animate-pulse" />
+          <p className="flex-1 text-sm text-teal-100">
+            New launch: {" "}
+            <Link href={`/launch/${newLaunchAlert.token_address}`} className="font-semibold text-teal-200 hover:underline">
               {newLaunchAlert.token_name} (${newLaunchAlert.token_symbol})
             </Link>{" "}
-            just went live on {newLaunchAlert.chain}
+            is live on {newLaunchAlert.chain}
           </p>
-          <button
-            onClick={dismissAlert}
-            className="text-zinc-500 hover:text-zinc-300 text-xs"
-          >
+          <button onClick={dismissAlert} className="text-xs text-slate-400 hover:text-slate-200">
             Dismiss
           </button>
         </div>
@@ -55,12 +47,20 @@ export function FeedList() {
         sort={sort}
         chain={chain}
         artifactType={artifactType}
-        onSortChange={(s) => { setSort(s); setPage(1); }}
-        onChainChange={(c) => { setChain(c); setPage(1); }}
-        onArtifactTypeChange={(t) => { setArtifactType(t); setPage(1); }}
+        onSortChange={(s) => {
+          setSort(s);
+          setPage(1);
+        }}
+        onChainChange={(c) => {
+          setChain(c);
+          setPage(1);
+        }}
+        onArtifactTypeChange={(t) => {
+          setArtifactType(t);
+          setPage(1);
+        }}
       />
 
-      {/* Feed content */}
       <div className="space-y-3">
         {isLoading && (
           <>
@@ -71,23 +71,25 @@ export function FeedList() {
         )}
 
         {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
-            <p className="text-sm text-red-400">Failed to load feed. Try refreshing.</p>
+          <div className="rounded-2xl border border-rose-300/30 bg-rose-500/10 p-6 text-center">
+            <p className="text-sm text-rose-200">Could not load feed. Try refreshing.</p>
           </div>
         )}
 
-        {data?.data.map((launch) => (
-          <LaunchCard key={launch.token_address} launch={launch} />
+        {data?.data.map((launch, index) => (
+          <div key={launch.token_address} className="soft-rise" style={{ animationDelay: `${index * 45}ms` }}>
+            <LaunchCard launch={launch} />
+          </div>
         ))}
 
         {data && data.data.length === 0 && !isLoading && (
-          <div className="rounded-xl border border-zinc-800 bg-surface-1 p-12 text-center">
-            <p className="text-zinc-400">No launches found with these filters.</p>
+          <div className="glass-panel rounded-2xl p-12 text-center">
+            <p className="text-slate-300">No launches match this filter set.</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Try widening chain or artifact filters</p>
           </div>
         )}
       </div>
 
-      {/* Pagination */}
       {data && data.hasMore && (
         <div className="flex justify-center gap-2 pt-4">
           <Button
@@ -98,15 +100,8 @@ export function FeedList() {
           >
             Previous
           </Button>
-          <span className="flex items-center text-sm text-zinc-400">
-            Page {page}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!data.hasMore}
-            onClick={() => setPage((p) => p + 1)}
-          >
+          <span className="flex items-center text-sm text-slate-300">Page {page}</span>
+          <Button variant="secondary" size="sm" disabled={!data.hasMore} onClick={() => setPage((p) => p + 1)}>
             Next
           </Button>
         </div>
