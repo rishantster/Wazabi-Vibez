@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { LaunchCard } from "./LaunchCard";
 import { FeedFilters } from "./FeedFilters";
 import { LaunchCardSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { useFeed } from "@/hooks/useFeed";
+import { useRealtimeFeed } from "@/hooks/useRealtimeFeed";
 import type { FeedSort, Chain, ArtifactType } from "@/types";
 
 export function FeedList() {
@@ -21,8 +23,34 @@ export function FeedList() {
     page,
   });
 
+  // Realtime: listen for new launches via Supabase
+  const { newLaunchAlert, dismissAlert } = useRealtimeFeed();
+
   return (
     <div className="space-y-4">
+      {/* Realtime new launch banner */}
+      {newLaunchAlert && (
+        <div className="flex items-center gap-3 rounded-xl border border-wazabi-500/30 bg-wazabi-500/5 px-4 py-3 animate-in fade-in slide-in-from-top-2">
+          <span className="h-2 w-2 rounded-full bg-wazabi-500 animate-pulse" />
+          <p className="flex-1 text-sm text-wazabi-300">
+            New launch:{" "}
+            <Link
+              href={`/launch/${newLaunchAlert.token_address}`}
+              className="font-semibold text-wazabi-400 hover:underline"
+            >
+              {newLaunchAlert.token_name} (${newLaunchAlert.token_symbol})
+            </Link>{" "}
+            just went live on {newLaunchAlert.chain}
+          </p>
+          <button
+            onClick={dismissAlert}
+            className="text-zinc-500 hover:text-zinc-300 text-xs"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <FeedFilters
         sort={sort}
         chain={chain}
