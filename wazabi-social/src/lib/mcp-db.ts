@@ -35,30 +35,34 @@ export async function getLaunches(options: {
 }): Promise<{ launches: McpLaunch[]; total: number }> {
   const supabase = getSupabase();
 
-  let query = supabase
-    .from("launches")
-    .select("*", { count: "exact" })
-    .eq("status", "finalized");
+  const runQuery = async (withStatusFilter: boolean) => {
+    let query = supabase.from("launches").select("*", { count: "exact" });
+    if (withStatusFilter) {
+      query = query.eq("status", "finalized");
+    }
+    if (options.chain) {
+      query = query.eq("chain", options.chain);
+    }
+    if (options.artifactType) {
+      query = query.eq("artifact_type", options.artifactType);
+    }
+    if (options.creatorAddress) {
+      query = query.eq("creator_address", options.creatorAddress);
+    }
 
-  if (options.chain) {
-    query = query.eq("chain", options.chain);
+    const orderField = options.orderBy?.split(" ")[0] || "created_at";
+    const ascending = options.orderBy?.includes("ASC") ?? false;
+    query = query.order(orderField, { ascending });
+    query = query.range(options.offset, options.offset + options.limit - 1);
+
+    return query;
+  };
+
+  let { data, count, error } = await runQuery(true);
+  if (error?.code === "42703" && error.message?.includes("launches.status")) {
+    console.warn("[mcp-db] launches.status not found, retrying without status filter");
+    ({ data, count, error } = await runQuery(false));
   }
-  if (options.artifactType) {
-    query = query.eq("artifact_type", options.artifactType);
-  }
-  if (options.creatorAddress) {
-    query = query.eq("creator_address", options.creatorAddress);
-  }
-
-  // Ordering
-  const orderField = options.orderBy?.split(" ")[0] || "created_at";
-  const ascending = options.orderBy?.includes("ASC") ?? false;
-  query = query.order(orderField, { ascending });
-
-  // Pagination
-  query = query.range(options.offset, options.offset + options.limit - 1);
-
-  const { data, count, error } = await query;
 
   if (error) {
     console.error("Supabase getLaunches error:", error);
@@ -96,13 +100,26 @@ export async function getLaunchesByCreator(
 ): Promise<McpLaunch[]> {
   const supabase = getSupabase();
 
-  const { data, error } = await supabase
-    .from("launches")
-    .select("*")
-    .eq("creator_address", creatorAddress)
-    .eq("status", "finalized")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  const runQuery = async (withStatusFilter: boolean) => {
+    let query = supabase
+      .from("launches")
+      .select("*")
+      .eq("creator_address", creatorAddress);
+
+    if (withStatusFilter) {
+      query = query.eq("status", "finalized");
+    }
+
+    return query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+  };
+
+  let { data, error } = await runQuery(true);
+  if (error?.code === "42703" && error.message?.includes("launches.status")) {
+    console.warn("[mcp-db] launches.status not found, retrying creator query without status filter");
+    ({ data, error } = await runQuery(false));
+  }
 
   if (error) {
     console.error("Supabase getLaunchesByCreator error:", error);
@@ -150,9 +167,10 @@ export function subscribeToNewLaunches(callback: LaunchCallback): () => void {
         event: "INSERT",
         schema: "public",
         table: "launches",
-        filter: "status=eq.finalized",
       },
       (payload) => {
+        const status = (payload.new as any)?.status;
+        if (status && status !== "finalized") return;
         callback(payload.new as McpLaunch);
       }
     )
@@ -167,7 +185,7 @@ export function subscribeToNewLaunches(callback: LaunchCallback): () => void {
         // Only trigger when status just changed to finalized
         const newStatus = (payload.new as any)?.status;
         const oldStatus = (payload.old as any)?.status;
-        if (newStatus === "finalized" && oldStatus !== "finalized") {
+        if (typeof newStatus !== "undefined" && newStatus === "finalized" && oldStatus !== "finalized") {
           callback(payload.new as McpLaunch);
         }
       }

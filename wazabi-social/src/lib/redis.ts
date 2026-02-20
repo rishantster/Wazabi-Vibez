@@ -1,15 +1,39 @@
 import Redis from "ioredis";
 
 const globalForRedis = globalThis as unknown as {
-  redis: Redis | undefined;
+  redis: CacheClient | undefined;
 };
 
-function getRedis(): Redis {
+type CacheClient = {
+  get: (key: string) => Promise<string | null>;
+  setex: (key: string, seconds: number, value: string) => Promise<unknown>;
+};
+
+const disabledRedis: CacheClient = {
+  async get() {
+    return null;
+  },
+  async setex() {
+    return "OK";
+  },
+};
+
+function getRedis(): CacheClient {
   if (!globalForRedis.redis) {
-    globalForRedis.redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      globalForRedis.redis = disabledRedis;
+      return globalForRedis.redis;
+    }
+
+    const client = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
     });
+    client.on("error", (err) => {
+      console.warn("[redis] connection error:", err.message);
+    });
+    globalForRedis.redis = client;
   }
   return globalForRedis.redis;
 }
