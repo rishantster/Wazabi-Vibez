@@ -1,0 +1,8 @@
+.git
+.DS_Store
+**/.DS_Store
+wazabi-social/node_modules
+wazabi-social/.next
+wazabi-social/.env
+wazabi-social/.env.local
+wazabi-social/.env.*.local

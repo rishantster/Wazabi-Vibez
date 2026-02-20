@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   const statsMap = new Map(socialStats.map((s) => [s.tokenAddress, s]));
 
   // Get creator info
-  const creatorAddresses = [...new Set(launches.map((l) => l.creator_address))];
+  const creatorAddresses = Array.from(new Set(launches.map((l) => l.creator_address)));
   const creators = await prisma.user.findMany({
     where: { walletAddress: { in: creatorAddresses } },
     include: { reputationStats: true },
