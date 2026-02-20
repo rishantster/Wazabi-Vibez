@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  walletAddress  String?  @unique @map("wallet_address")
+  walletChain    Chain?   @map("wallet_chain")
+  githubId       String?  @unique @map("github_id")
+  githubUsername  String?  @map("github_username")
+  twitterId      String?  @unique @map("twitter_id")
+  twitterHandle  String?  @map("twitter_handle")
+  displayName    String?  @map("display_name")
+  avatarUrl      String?  @map("avatar_url")
+  bio            String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  comments        Comment[]
+  convictionVotes ConvictionVote[]
+  notifications   Notification[]
+  followers       Follow[]          @relation("following")
+  following       Follow[]          @relation("follower")
+  reputationStats CreatorReputation?
+
+  @@map("users")
+}
+
+// ─── Follows ─────────────────────────────────────────────────────────────────
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+model Comment {
+  id                String   @id @default(uuid())
+  launchTokenAddress String  @map("launch_token_address")
+  userId            String   @map("user_id")
+  parentCommentId   String?  @map("parent_comment_id")
+  body              String
+  createdAt         DateTime @default(now()) @map("created_at")
+  editedAt          DateTime? @map("edited_at")
+
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("thread", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("thread")
+
+  @@index([launchTokenAddress])
+  @@index([userId])
+  @@map("comments")
+}
+
+// ─── Conviction Votes ────────────────────────────────────────────────────────
+
+model ConvictionVote {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  launchTokenAddress String   @map("launch_token_address")
+  chain              Chain
+  amountDeclared     String   @map("amount_declared") // stored as string for big number precision
+  amountUsd          Float    @map("amount_usd")
+  lockDurationDays   Int      @map("lock_duration_days")
+  message            String   // the structured message that was signed
+  signature          String   // wallet signature proving conviction
+  signerAddress      String   @map("signer_address")
+  createdAt          DateTime @default(now()) @map("created_at")
+  lockedUntil        DateTime @map("locked_until")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([launchTokenAddress])
+  @@index([userId])
+  @@map("conviction_votes")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  payload   Json
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ─── Creator Reputation (materialized stats) ─────────────────────────────────
+
+model CreatorReputation {
+  id                   String   @id @default(uuid())
+  userId               String   @unique @map("user_id")
+  walletAddress        String   @unique @map("wallet_address")
+  totalLaunches        Int      @default(0) @map("total_launches")
+  avgVestingTier       Float    @default(0) @map("avg_vesting_tier")
+  fullyVestedCount     Int      @default(0) @map("fully_vested_count")
+  totalLpLockedUsd     Float    @default(0) @map("total_lp_locked_usd")
+  verifiedLaunches     Int      @default(0) @map("verified_launches")
+  firstLaunchAt        DateTime? @map("first_launch_at")
+  reputationScore      Int      @default(0) @map("reputation_score")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("creator_reputation")
+}
+
+// ─── Launch Social Stats (cached counters for feed performance) ──────────────
+
+model LaunchSocialStats {
+  tokenAddress     String   @id @map("token_address")
+  upvoteCount      Int      @default(0) @map("upvote_count")
+  commentCount     Int      @default(0) @map("comment_count")
+  convictionTotal  Float    @default(0) @map("conviction_total_usd")
+  trendingScore    Float    @default(0) @map("trending_score")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([trendingScore(sort: Desc)])
+  @@map("launch_social_stats")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Chain {
+  solana
+  ethereum
+  base
+  bsc
+}
+
+enum NotificationType {
+  new_launch
+  comment_reply
+  new_follower
+  conviction_received
+  reputation_milestone
+}
